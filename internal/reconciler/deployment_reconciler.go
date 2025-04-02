@@ -10,19 +10,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type DeploymentReconciler struct {
-	Logger logx.Logger
+	*CommonConfig
 	Scheme *runtime.Scheme
 	client.Client
 }
 
-func (r *DeploymentReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
+func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var dep appsv1.Deployment
 	err := r.Get(ctx, req.NamespacedName, &dep)
 	if err != nil {
@@ -48,6 +45,10 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		logx.Any("labels", dep.Spec.Template.Labels),
 		logx.Any("containers", containers),
 	)
+
+	if r.OnlyWatch {
+		return ctrl.Result{}, nil
+	}
 
 	return r.reconcileDeployment(ctx, &dep)
 }
@@ -77,8 +78,8 @@ func (r *DeploymentReconciler) reconcileService(ctx context.Context, dep *appsv1
 	return reconcileService(ctx, r.Client, dep, r.Scheme, dep.Spec.Template.Labels, r.Logger)
 }
 
-func (r *DeploymentReconciler) Setup(mgr manager.Manager) error {
-	return builder.ControllerManagedBy(mgr).
+func (r *DeploymentReconciler) Setup(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
 		Owns(&corev1.Pod{}).
 		Owns(&corev1.Service{}).

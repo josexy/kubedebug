@@ -48,9 +48,14 @@ func init() {
 	utilruntime.Must(corev1.AddToScheme(scheme))
 }
 
+var (
+	configPath string
+	onlyWatch  bool
+)
+
 func main() {
-	var configPath string
 	flag.StringVar(&configPath, "c", "config.yaml", "config file path")
+	flag.BoolVar(&onlyWatch, "w", false, "only watch resource and not reconcile")
 	flag.Parse()
 
 	if err := config.ReadAndValidateConfigFile(configPath); err != nil {
@@ -106,18 +111,24 @@ func main() {
 		switch config.GetConfig().Type {
 		case config.DeploymentType:
 			if err := (&reconciler.DeploymentReconciler{
-				Logger: logger.With(logx.String("controller", "deployment")),
 				Scheme: mgr.GetScheme(),
 				Client: mgr.GetClient(),
+				CommonConfig: &reconciler.CommonConfig{
+					OnlyWatch: onlyWatch,
+					Logger:    logger.With(logx.String("controller", "deployment")),
+				},
 			}).Setup(mgr); err != nil {
 				logger.Error("could not create controller", logx.Error("error", err))
 				os.Exit(1)
 			}
 		case config.StatefulsetType:
 			if err := (&reconciler.StatefulsetReconciler{
-				Logger: logger.With(logx.String("controller", "statefulset")),
 				Scheme: mgr.GetScheme(),
 				Client: mgr.GetClient(),
+				CommonConfig: &reconciler.CommonConfig{
+					OnlyWatch: onlyWatch,
+					Logger:    logger.With(logx.String("controller", "statefulset")),
+				},
 			}).Setup(mgr); err != nil {
 				logger.Error("could not create controller", logx.Error("error", err))
 				os.Exit(1)

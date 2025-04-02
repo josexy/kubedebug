@@ -1,0 +1,14 @@
+FROM golang:latest as builder 
+
+ENV GODEBUG=netdns=go
+ENV CGO_ENABLED=0
+ENV GOPROXY=https://goproxy.cn,direct
+
+RUN go install -ldflags="-extldflags=-static" github.com/go-delve/delve/cmd/dlv@latest
+
+WORKDIR /go/bin
+
+FROM alpine:latest
+WORKDIR /go/bin
+COPY --from=builder /go/bin/dlv /go/bin/dlv
+CMD [ "/bin/sh", "-c", "sleep infinity" ]

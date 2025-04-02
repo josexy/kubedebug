@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -68,6 +67,8 @@ func fillPodTemplate(template *corev1.PodTemplateSpec) {
 				Name:      dlvExeVolumeName,
 				MountPath: dlvExeVolumeMountPath,
 			})
+		} else {
+			template.Spec.Volumes[index].VolumeSource.HostPath.Path = config.GetConfig().DlvExePath
 		}
 		if config.GetConfig().DebugExePath != "" {
 			if _, index := findVolume(template, debugExeVolumeName); index == -1 {
@@ -83,6 +84,8 @@ func fillPodTemplate(template *corev1.PodTemplateSpec) {
 					Name:      debugExeVolumeName,
 					MountPath: debugExeVolumeMountPath,
 				})
+			} else {
+				template.Spec.Volumes[index].VolumeSource.HostPath.Path = config.GetConfig().DebugExePath
 			}
 		}
 		template.Spec.Containers[index] = container
@@ -101,7 +104,7 @@ func reconcileService(ctx context.Context, c client.Client,
 	var result ctrl.Result
 	_, err := ctrl.CreateOrUpdate(ctx, c, svc, func() error {
 		logger.Info("Creating or Updating Service", logx.String("svc", svc.Name))
-		if err := controllerutil.SetControllerReference(object, svc, scheme); err != nil {
+		if err := ctrl.SetControllerReference(object, svc, scheme); err != nil {
 			result = ctrl.Result{Requeue: true}
 			return nil
 		}
